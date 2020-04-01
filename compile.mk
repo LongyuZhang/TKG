@@ -35,7 +35,7 @@ getdependency:
 #######################################
 COMPILATION_LOG=$(TESTOUTPUT)$(D)compile$(D)compilation.log
 MOVE_TDUMP_PERL=perl scripts$(D)moveDmp.pl --compileLogPath=$(Q)$(COMPILATION_LOG)$(Q) --testRoot=$(Q)$(TEST_ROOT)$(Q) --spec=$(Q)$(SPEC)$(Q)
-MOVE_TDUMP=if [ -z $$(tail -n 1 $(COMPILATION_LOG) | grep 0) ]; then $(MOVE_TDUMP_PERL); $(RM) $(Q)$(COMPILATION_LOG)$(Q); false; else $(RM) $(Q)$(COMPILATION_LOG)$(Q); fi
+MOVE_TDUMP=if [ -z $(Q)$$(tail -n 1 $(COMPILATION_LOG) | grep 0)$(Q) ]; then $(MOVE_TDUMP_PERL); $(RM) $(Q)$(COMPILATION_LOG)$(Q); false; else $(RM) $(Q)$(COMPILATION_LOG)$(Q); fi
 COMPILE_CMD=ant -f scripts$(D)build_test.xml -DTEST_ROOT=$(TEST_ROOT) -DBUILD_ROOT=$(BUILD_ROOT) -DJDK_VERSION=$(JDK_VERSION) -DJDK_IMPL=$(JDK_IMPL) -DJCL_VERSION=$(JCL_VERSION) -DBUILD_LIST=${BUILD_LIST} -DRESOURCES_DIR=${RESOURCES_DIR} -DSPEC=${SPEC} -DTEST_JDK_HOME=${TEST_JDK_HOME} -DJVM_VERSION=$(JVM_VERSION) -DLIB_DIR=$(LIB_DIR)
 
 compile: getdependency
