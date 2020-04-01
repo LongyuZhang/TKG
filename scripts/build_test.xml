@@ -55,8 +55,8 @@
 	</macrodef>
 
 	<target name="build" depends="stage_test_material" description="using ${JDK_VERSION} to compile the source ">
-		<subant target="">
-			<property name="build.dir" value="subant1.build" />
+		<subant target=xzcvxzv"">
+			<property name=xzcvxv"build.dir" value="subant1.build" />
 			<property name="not.overloaded" value="not.overloaded" />
 			<property name="JDK_VERSION" value="${JDK_VERSION}" />
 			<property name="compiler.javac" value="${JAVAC}" />
