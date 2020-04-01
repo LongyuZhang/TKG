@@ -126,101 +126,118 @@ sub moveTDUMPS {
 	my @dumplist = ();
 	# Use a hash to ensure that each dump is only dealt with once
 	my %parsedNames = ();
-	if ($spec !~ /zos/) {
+	if ($spec =~ /osx/) {
+		logMsg("Attempting to move the TDUMPS to '$moveLocation', using the log to identify the TDUMP name to be moved");
+		my $listCores = "ls -al /cores";
+		my $createCoreFile = "touch /cores/core.test1.dmp /cores/core.test2.dmp";
+		my $moveCMD = "find /cores -maxdepth 1 -name 'core.*.dmp' -exec mv {} '${moveLocation}' \\;";
+		my $listTargets = "ls -al ".${moveLocation}."";
+		my @coreFiles = qx($listCores);
+		print("original cores folder: @coreFiles \n");
+		qx($createCoreFile);
+		my @createdCoreFiles = qx($listCores);
+		print("created core file: @createdCoreFiles \n");		
+		my @moveFiles = qx($moveCMD);
+		print("moving files ... @moveFiles \n\n");
+		my @destFiles = qx($listTargets);
+		print("dest files: @destFiles \n");
+		return;
+	} elsif ($spec =~ /zos/) {
+		logMsg("Attempting to move the TDUMPS to '$moveLocation', using the log to identify the TDUMP name to be moved");
+		if ($file) {
+			if ($file =~ /IEATDUMP success for DSN='.*'/) {
+				my ($tdump) = $file =~ /IEATDUMP success for DSN='(.*)'/;
+				$parsedNames{$tdump} = 1;
+			}
+			# A partial dump has been created, even though it is a failure, dump still occurred and needs moving
+			if ($file =~ /IEATDUMP failure for DSN='.*' RC=0x00000004 RSN=0x00000000/) {
+				my ($tdump) = $file =~ /IEATDUMP failure for DSN='(.*)'/;
+				$parsedNames{$tdump} = 1;
+			}
+			# Dump failed due to no space left on the machine, so print out warning message
+			if ($file =~ /IEATDUMP failure for DSN='.*' RC=0x00000008 RSN=0x00000026/) {
+				my ($tdump) = $file =~ /IEATDUMP failure for DSN='(.*)'/;
+				logMsg("ERROR: TDUMP failed due to no space left on machine. $tdump cannot be found.");
+			}
+		}
+		push(@dumplist, keys(%parsedNames));
+		if (!@dumplist) {
+			logMsg("No dumps names found in logs/supplied");
+			# Nothing to do
+			return;
+		}
+		logMsg("Attempting to retrieve dumps with names: '" . join("', '", @dumplist), "'");
+		my %movedDumps = ();
+		foreach my $dump (@dumplist) {
+			my $cmdSucceed;
+			my $dumpFound;
+			my $cleanFile;
+			my $moveLog = "move.log";
+			my $deleteLog = "delete.log";
+			if ($dump !~ /X&DS/) {
+				my $coreDump = "core."."$dump".".dmp";
+				my $cmd = "mv \"//'${dump}'\" ". catfile($moveLocation, $coreDump);
+				qx($cmd 2>$moveLog);
+				($cmdSucceed, $dumpFound, $cleanFile) = checkLog($dump, $moveLog);
+				if ($cmdSucceed) {
+					logMsg("Found TDUMP named $dump, and renamed it $coreDump located at $moveLocation");
+					$movedDumps{$dump} = 1;
+				}
+				if ($cleanFile) {
+					my $cmd = "mv \"//'${dump}'\" /dev/null";
+					qx($cmd 2>$deleteLog);
+					checkLog($dump,"delete.log");
+				}
+			} else {
+				logMsg("Naming of dump consistent with multiple dumps \n");
+				my @parts;
+				$dump =~ s/\.X&DS//;
+				logMsg("Changed dump name to $dump \n");
+				my $coreDump = "core."."$dump".".dmp";
+				my $num = qx(tso listcat | grep $dump | wc -l);
+				$num =~ s/^\s+|\s+$//g;
+				my $numFiles = int($num);
+				if ($numFiles == 0) {
+					logMsg("ERROR: dump does not exist");
+				}
+				my $dump01;
+				for (my $i=1; $i <= $numFiles; $i++) {
+					if (($i >= 1) && ($i < 10)) {
+						$dump01 = $dump.".X00".$i;
+					} elsif (($i >= 10) && ($i < 100)) { 
+						$dump01 = $dump.".X0".$i;
+					} else {
+						$dump01 = $dump.".X".$i;
+					}
+					logMsg("Looking for $dump01 \n");
+					logMsg("Appending the contents of ${dump01} to $coreDump \n");
+					my $cmd = "cat \"//'${dump01}'\" ".">> ". catfile($moveLocation, "$coreDump");
+					qx($cmd 2>$moveLog);
+					($cmdSucceed, $dumpFound, $cleanFile) = checkLog($dump01,$moveLog);
+					if ($cmdSucceed) {
+						logMsg("Found TDUMP named $dump01, and appended the contents to $coreDump located at $moveLocation");
+						$movedDumps{$dump01} = 1;
+					}
+					if ($dumpFound) {
+						my $cmd = "mv \"//'${dump01}'\" /dev/null";
+						qx($cmd 2>$deleteLog);
+						checkLog($dump01,"delete.log");
+					}
+				}
+			}
+		}
+		my @returnList = keys(%movedDumps);
+		logMsg("TDUMP Summary:");
+		foreach my $line (@returnList) {
+			print("$line \n");
+		}
+		logMsg("End of TDUMP Summary");
+		return (@returnList);
+	} else {
 		my $moveCMD = "find ".${testRoot}." -name 'core.*.dmp' -exec mv -t ".${moveLocation}." '{}' +";
 		qx($moveCMD);
 		return;
 	}
-	logMsg("Attempting to move the TDUMPS to '$moveLocation', using the log to identify the TDUMP name to be moved");
-	if ($file) {
-		if ($file =~ /IEATDUMP success for DSN='.*'/) {
-			my ($tdump) = $file =~ /IEATDUMP success for DSN='(.*)'/;
-			$parsedNames{$tdump} = 1;
-		}
-		# A partial dump has been created, even though it is a failure, dump still occurred and needs moving
-		if ($file =~ /IEATDUMP failure for DSN='.*' RC=0x00000004 RSN=0x00000000/) {
-			my ($tdump) = $file =~ /IEATDUMP failure for DSN='(.*)'/;
-			$parsedNames{$tdump} = 1;
-		}
-		# Dump failed due to no space left on the machine, so print out warning message
-		if ($file =~ /IEATDUMP failure for DSN='.*' RC=0x00000008 RSN=0x00000026/) {
-			my ($tdump) = $file =~ /IEATDUMP failure for DSN='(.*)'/;
-			logMsg("ERROR: TDUMP failed due to no space left on machine. $tdump cannot be found.");
-		}
-	}
-	push(@dumplist, keys(%parsedNames));
-	if (!@dumplist) {
-		logMsg("No dumps names found in logs/supplied");
-		# Nothing to do
-		return;
-	}
-	logMsg("Attempting to retrieve dumps with names: '" . join("', '", @dumplist), "'");
-	my %movedDumps = ();
-	foreach my $dump (@dumplist) {
-		my $cmdSucceed;
-		my $dumpFound;
-		my $cleanFile;
-		my $moveLog = "move.log";
-		my $deleteLog = "delete.log";
-		if ($dump !~ /X&DS/) {
-			my $coreDump = "core."."$dump".".dmp";
-			my $cmd = "mv \"//'${dump}'\" ". catfile($moveLocation, $coreDump);
-			qx($cmd 2>$moveLog);
-			($cmdSucceed, $dumpFound, $cleanFile) = checkLog($dump, $moveLog);
-			if ($cmdSucceed) {
-				logMsg("Found TDUMP named $dump, and renamed it $coreDump located at $moveLocation");
-				$movedDumps{$dump} = 1;
-			}
-			if ($cleanFile) {
-				my $cmd = "mv \"//'${dump}'\" /dev/null";
-				qx($cmd 2>$deleteLog);
-				checkLog($dump,"delete.log");
-			}
-		} else {
-			logMsg("Naming of dump consistent with multiple dumps \n");
-			my @parts;
-			$dump =~ s/\.X&DS//;
-			logMsg("Changed dump name to $dump \n");
-			my $coreDump = "core."."$dump".".dmp";
-			my $num = qx(tso listcat | grep $dump | wc -l);
-			$num =~ s/^\s+|\s+$//g;
-			my $numFiles = int($num);
-			if ($numFiles == 0) {
-				logMsg("ERROR: dump does not exist");
-			}
-			my $dump01;
-			for (my $i=1; $i <= $numFiles; $i++) {
-				if (($i >= 1) && ($i < 10)) {
-					$dump01 = $dump.".X00".$i;
-				} elsif (($i >= 10) && ($i < 100)) { 
-					$dump01 = $dump.".X0".$i;
-				} else {
-					$dump01 = $dump.".X".$i;
-				}
-				logMsg("Looking for $dump01 \n");
-				logMsg("Appending the contents of ${dump01} to $coreDump \n");
-				my $cmd = "cat \"//'${dump01}'\" ".">> ". catfile($moveLocation, "$coreDump");
-				qx($cmd 2>$moveLog);
-				($cmdSucceed, $dumpFound, $cleanFile) = checkLog($dump01,$moveLog);
-				if ($cmdSucceed) {
-					logMsg("Found TDUMP named $dump01, and appended the contents to $coreDump located at $moveLocation");
-					$movedDumps{$dump01} = 1;
-				}
-				if ($dumpFound) {
-					my $cmd = "mv \"//'${dump01}'\" /dev/null";
-					qx($cmd 2>$deleteLog);
-					checkLog($dump01,"delete.log");
-				}
-			}
-		}
-	}
-	my @returnList = keys(%movedDumps);
-	logMsg("TDUMP Summary:");
-	foreach my $line (@returnList) {
-		print("$line \n");
-	}
-	logMsg("End of TDUMP Summary");
-	return (@returnList);
 }
 
 1;
