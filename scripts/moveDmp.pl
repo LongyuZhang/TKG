@@ -16,6 +16,7 @@ use strict;
 use File::Spec::Functions;
 use Time::Local;
 use File::Basename;
+use Cwd;
 
 our $TRUE = 1;
 our $FALSE = 0;
@@ -29,8 +30,15 @@ for (my $i = 0; $i < scalar(@ARGV); $i++) {
 	my $arg = $ARGV[$i];
 	if ($arg =~ /^\-\-compileLogPath=/) {
 		($path) = $arg =~ /^\-\-compileLogPath=(.*)/;
+		
+		# test only
+		logMsg("initial path  $path");
 	} elsif ($arg =~ /^\-\-testRoot=/) {
 		($testRoot) = $arg =~ /^\-\-testRoot=(.*)/;
+		
+		# test only
+		logMsg("initial testRoot  $testRoot");
+
 	} elsif ($arg =~ /^\-\-spec=/) {
 		($spec) = $arg =~ /^\-\-spec=(.*)/;
 	}
@@ -38,6 +46,16 @@ for (my $i = 0; $i < scalar(@ARGV); $i++) {
 
 if ($path && $testRoot && $spec) {
 	my $location = dirname($path);
+	if($spec =~ /win/) {
+		my $cygPath = qx(cygpath -u '$path');
+		$location = dirname($cygPath);
+	} 
+			
+	# test only
+	logMsg("initial logpath  $location");
+	logMsg("final testRoot  $testRoot");
+
+
 	open my $Log, '<', "$path";
 	my $compileLog = do { local $/; <$Log> };
 	moveTDUMPS($compileLog, $location, $spec);
@@ -127,8 +145,58 @@ sub moveTDUMPS {
 	# Use a hash to ensure that each dump is only dealt with once
 	my %parsedNames = ();
 	if ($spec !~ /zos/) {
-		my $moveCMD = "find ".${testRoot}." -name 'core.*.dmp' -exec mv -t ".${moveLocation}." '{}' +";
-		qx($moveCMD);
+		if($file) {
+			while ($file =~ /System dump written to (.*)/g) {
+				my $curCorePath = $1;
+				my $curCoreName = basename($curCorePath);
+
+				# test only
+				logMsg("move destination is  $moveLocation");
+				logMsg("pre curCorePath is  $curCorePath");	
+			
+				if(!exists $parsedNames{$curCoreName}) {
+					# handle each core only once
+					$parsedNames{$curCoreName} = 1;
+					# If the core is not in the preferred location, move it to $moveLocation
+					if($spec =~ /win/) {
+						$curCorePath = qx(cygpath -u '$curCorePath');
+						# $moveLocation = qx(cygpath -u '$moveLocation');
+
+						# test only
+						logMsg("win after curCorePath is  $curCorePath");
+						# logMsg("win after moveLocation is  $moveLocation");
+					
+					} else {
+						my $curCorePath = Cwd::abs_path( $curCorePath );
+						my $moveLocation = Cwd::abs_path( $moveLocation );
+					
+
+						#test only
+						logMsg("curCoreAbsPath is  $curCorePath");
+						logMsg("moveLocationAbs is   $moveLocation");
+					}
+					
+					if($curCorePath !~  $moveLocation) {
+						qx(mv '${curCorePath}' '${moveLocation}'/);
+						my $moveResult = $?;
+						$moveResult = $moveResult >> 8 unless ($moveResult == -1);
+						if($moveResult == 0) {
+							logMsg("Successfully moved core file $curCoreName to $moveLocation");
+						} else {
+							logMsg("Failed to move core file from $curCorePath to $moveLocation");
+						}
+					}
+				}
+				
+				#test only
+				my $listTargets = "ls -al ".${moveLocation}."";
+				my @destFiles = qx($listTargets);
+				print("destination ${moveLocation} folder: @destFiles \n");
+			}
+		} else {
+			#test only
+			logMsg("No Log file for compilation!");
+		}
 		return;
 	}
 	logMsg("Attempting to move the TDUMPS to '$moveLocation', using the log to identify the TDUMP name to be moved");
