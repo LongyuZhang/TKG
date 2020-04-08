@@ -167,7 +167,7 @@ sub moveTDUMPS {
 
 				if($spec =~ /win/) {
 					$curCoreAbsPath = qx(cygpath -u '$curCorePath');
-					# $moveLocation = qx(cygpath -u '$moveLocation');
+					$moveLocationAbs = qx(cygpath -u '$moveLocation');
 
 					# test only
 					# logMsg("win after curCorePath is  $curCorePath.");
@@ -183,6 +183,8 @@ sub moveTDUMPS {
 					# logMsg("moveLocationAbs 3 is   $moveLocation");
 				}
 				my $curCoreName = basename($curCorePath);
+
+				logMsg("curCoreName is $curCoreName.");
 
 				# # test only
 				# logMsg("move destination is  $moveLocation.");
@@ -225,7 +227,7 @@ sub moveTDUMPS {
 
 						# File::Copy::move($curCorePath2, $moveLocation2);
 						# File::Copy::move($curCorePath, $moveLocation);
-						qx(mv '${curCorePath}' ${moveLocation});
+						qx(mv '${curCorePath}' ${moveLocationAbs});
 						# qx(mv '${curCorePath2}' ${moveLocation2});
 						my $moveResult = $?;
 						
