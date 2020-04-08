@@ -16,7 +16,6 @@ use strict;
 use File::Spec::Functions;
 use Time::Local;
 use File::Basename;
-use File::Copy;
 use Cwd;
 
 our $TRUE = 1;
@@ -46,7 +45,7 @@ if ($path && $testRoot && $spec) {
 	}
 	open my $Log, '<', "$path";
 	my $compileLog = do { local $/; <$Log> };
-	moveTDUMPS($compileLog, $location, $spec);
+	moveTDUMPS($compileLog, $location, $spec, $testRoot);
 }
 
 sub logMsg {
@@ -128,27 +127,63 @@ sub checkLog {
 }
 
 sub moveTDUMPS {
-	my ($file, $moveLocation, $spec) = @_;
+	my ($file, $moveLocation, $spec, $testRoot) = @_;
 	my @dumplist = ();
 	# Use a hash to ensure that each dump is only dealt with once
 	my %parsedNames = ();
 	if ($spec !~ /zos/) {
 		if($file) {
+			
+			#test only
+			my @findFiles = qx(find '${testRoot}' -name 'core.*');
+			if(!@findFiles) {
+				print("No core file in $testRoot \n");
+			} else {
+				foreach my $file (@findFiles) {
+					print("found file $file \n");
+				}
+			}
+
+			#test only
+			my $listTargets3 = "ls -al ".${testRoot}."";
+			my @destFiles3 = qx($listTargets3);
+			print("destination ${testRoot} folder: @destFiles3 \n");
+
+
+
+
+        	my $moveCMD = "find '${testRoot}' -name 'core.*' -exec mv {} '${moveLocation}' \\;";
+        	my @moveFiles = qx($moveCMD);
+			
+			#test only
+			my $listTargets1 = "ls -al ".${moveLocation}."";
+			my @destFiles1 = qx($listTargets1);
+			print("destination ${moveLocation} folder: @destFiles1 \n");
+			
+			#test only
+			my $listTargets2 = "ls -al '/cores'";
+			my @destFiles2 = qx($listTargets2);
+			print("destination /cores folder: @destFiles2 \n");
+
+
+
+
+
+
 			while ($file =~ /System dump written to (.*)/g) {
 				my $curCorePath = $1;
-				$curCorePath =~ s/\n//g;
     			$curCorePath =~ s/\r//g;
-
 				my $curCoreAbsPath = "";
 				my $moveLocationAbs = "";
 				if($spec =~ /win/) {
 					$curCoreAbsPath = qx(cygpath -u '$curCorePath');
-					$moveLocationAbs = qx(cygpath -u '$moveLocation');
+					$moveLocationAbs = $moveLocation;
+					$moveLocation = qx(cygpath -w '$moveLocation');
 				} else {
 					$curCoreAbsPath = Cwd::abs_path( $curCorePath );
 					$moveLocationAbs = Cwd::abs_path( $moveLocation );
 				}
-				my $curCoreName = basename($curCorePath);
+				my $curCoreName = basename($curCoreAbsPath);
 				if(!exists $parsedNames{$curCoreName}) {
 					# handle each core only once
 					$parsedNames{$curCoreName} = 1;
@@ -166,11 +201,12 @@ sub moveTDUMPS {
 				}
 				
 				#test only
-				my $listTargets = "ls -al ".${moveLocation}."";
+				my $listTargets = "ls -al ".${moveLocationAbs}."";
 				my @destFiles = qx($listTargets);
-				print("destination ${moveLocation} folder: @destFiles \n");
+				print("destination ${moveLocationAbs} folder: @destFiles \n");
 			}
 		} else {
+
 			#test only
 			logMsg("No Log file for compilation!");
 		}

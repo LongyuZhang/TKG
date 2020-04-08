@@ -136,9 +136,9 @@ sub resultReporter {
 						if (($diagnostic eq 'failure') || ($diagnostic eq 'all')) {
 							$tapString .= $output;
 						}
-						if ($spec =~ /zos/) {
+						if ($spec =~ /zos|osx/) {
 							my $dmpDir = dirname($resultFile).'/'.$testName;
-							moveTDUMPS($output, $dmpDir, $spec);
+							moveTDUMPS($output, $dmpDir, $spec, $dmpDir);
 						}
 					} elsif ($result eq ($testName . "_DISABLED\n")) {
 						$result =~ s/_DISABLED\n$//;
