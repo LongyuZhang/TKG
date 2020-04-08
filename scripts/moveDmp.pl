@@ -16,6 +16,7 @@ use strict;
 use File::Spec::Functions;
 use Time::Local;
 use File::Basename;
+use File::Copy;
 use Cwd;
 
 our $TRUE = 1;
@@ -148,38 +149,87 @@ sub moveTDUMPS {
 		if($file) {
 			while ($file =~ /System dump written to (.*)/g) {
 				my $curCorePath = $1;
+				# $curCorePath =~ s/\R//g;
+				$curCorePath =~ s/\n//g;
+    			$curCorePath =~ s/\r//g;
+
+				#test only
+				logMsg("curCoreAbsPath 2 is  $curCorePath");
+				logMsg("moveLocationAbs 2 is   $moveLocation");
+
+				
+				File::Copy::move($curCorePath, $moveLocation);
+				qx(mv '${curCorePath}' ${moveLocation});
+
+
+				if($spec =~ /win/) {
+					$curCorePath = qx(cygpath -u '$curCorePath');
+					# $moveLocation = qx(cygpath -u '$moveLocation');
+
+					# test only
+					logMsg("win after curCorePath is  $curCorePath.");
+					# logMsg("win after moveLocation is  $moveLocation");
+				
+				} else {
+					my $curCorePath = Cwd::abs_path( $curCorePath );
+					my $moveLocation = Cwd::abs_path( $moveLocation );
+				
+
+					#test only
+					logMsg("curCoreAbsPath 3 is  $curCorePath");
+					logMsg("moveLocationAbs 3 is   $moveLocation");
+				}
 				my $curCoreName = basename($curCorePath);
 
 				# test only
-				logMsg("move destination is  $moveLocation");
+				logMsg("move destination is  $moveLocation.");
 				logMsg("pre curCorePath is  $curCorePath");	
+
+
+				#test only
+				my $curRootFolder = $curCorePath;
+				my $listTargets2 = "ls -al $curRootFolder";
+				my @destFiles2 = qx($listTargets2);
+				print("core generate $curRootFolder folder: @destFiles2 \n");
+
+				#test only
+				my $listTargets3 = "ls -al ".${moveLocation}."";
+				my @destFiles3 = qx($listTargets3);
+				print("destination ${moveLocation} folder: @destFiles3 \n");
 			
 				if(!exists $parsedNames{$curCoreName}) {
 					# handle each core only once
 					$parsedNames{$curCoreName} = 1;
 					# If the core is not in the preferred location, move it to $moveLocation
-					if($spec =~ /win/) {
-						$curCorePath = qx(cygpath -u '$curCorePath');
-						# $moveLocation = qx(cygpath -u '$moveLocation');
 
-						# test only
-						logMsg("win after curCorePath is  $curCorePath");
-						# logMsg("win after moveLocation is  $moveLocation");
-					
-					} else {
-						my $curCorePath = Cwd::abs_path( $curCorePath );
-						my $moveLocation = Cwd::abs_path( $moveLocation );
-					
-
-						#test only
-						logMsg("curCoreAbsPath is  $curCorePath");
-						logMsg("moveLocationAbs is   $moveLocation");
-					}
 					
 					if($curCorePath !~  $moveLocation) {
-						qx(mv '${curCorePath}' '${moveLocation}'/);
+						#test only
+						logMsg("mark 1");
+
+						# my $moveCore = "mv ${curCorePath} ${moveLocation}/${curCoreName}";
+						# logMsg("Moved core command  $moveCore");
+						# qx($moveCore);
+						# my $moveResult = $?;
+						my $curCorePath2 = qx(cygpath -w '$curCorePath');
+						my $moveLocation2 = qx(cygpath -w '$moveLocation');
+
+						# test only
+						logMsg("move destination is  $moveLocation2.");
+						logMsg("pre curCorePath is  $curCorePath2.");	
+
+						# my $moveResult = File::Copy::move("$curCorePath2", $moveLocation2) or die $!;
+
+						File::Copy::move($curCorePath2, $moveLocation2);
+						File::Copy::move($curCorePath, $moveLocation);
+						qx(mv '${curCorePath}' ${moveLocation});
+						qx(mv '${curCorePath2}' ${moveLocation2});
 						my $moveResult = $?;
-						$moveResult = $moveResult >> 8 unless ($moveResult == -1);
+						
+						# test only
+						logMsg("mark 2");
+
+						# $moveResult = $moveResult >> 8 unless ($moveResult == -1);
 						if($moveResult == 0) {
 							logMsg("Successfully moved core file $curCoreName to $moveLocation");
 						} else {
