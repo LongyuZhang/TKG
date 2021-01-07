@@ -66,9 +66,9 @@ my %base = (
 		sha1 => '535f141f6c8fc65986a3469839a852a3266d1025'
 	},
 	asm => {
-		url => 'https://repository.ow2.org/nexus/content/repositories/releases/org/ow2/asm/asm/9.0-beta/asm-9.0-beta.jar',
+		url => 'https://repository.ow2.org/nexus/content/repositories/releases/org/ow2/asm/asm/9.0/asm-9.0.jar',
 		fname => 'asm.jar',
-		sha1 => 'a0f58cad836a410f6ba133aaa209aea7e54aaf8a'
+		sha1 => 'af582ff60bc567c42d931500c3fdc20e0141ddf9'
 	},
 	commons_cli => {
 		url => 'https://repo1.maven.org/maven2/commons-cli/commons-cli/1.2/commons-cli-1.2.jar',
